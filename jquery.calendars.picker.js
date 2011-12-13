@@ -57,6 +57,8 @@ function CalendarsPicker() {
 		constrainInput: true, // True to constrain typed input to dateFormat allowed characters
 		commandsAsDateFormat: false, // True to apply formatDate to the command texts
 		commands: this.commands // Command actions that may be added to a layout by name
+    , translateNumberFunction: function(num) { return num; }
+    , disableInput: false
 	};
 	this.regional = {
 		'': {
@@ -725,9 +727,11 @@ $.extend(CalendarsPicker.prototype, {
 		if (inst) {
 			var value = '';
 			var altValue = '';
+      var gValue = '';
 			var sep = (inst.get('multiSelect') ? inst.get('multiSeparator') :
 				inst.get('rangeSeparator'));
 			var calendar = inst.get('calendar');
+      var gCalendar = $.calendars.instance();
 			var dateFormat = inst.get('dateFormat') || calendar.local.dateFormat;
 			var altFormat = inst.get('altFormat') || dateFormat;
 			for (var i = 0; i < inst.selectedDates.length; i++) {
@@ -735,11 +739,18 @@ $.extend(CalendarsPicker.prototype, {
 					calendar.formatDate(dateFormat, inst.selectedDates[i]));
 				altValue += (i > 0 ? sep : '') +
 					calendar.formatDate(altFormat, inst.selectedDates[i]);
+        var gDate = gCalendar.fromJD(inst.selectedDates[i].toJD());
+        gValue += (i > 0 ? sep : '') + gCalendar.formatDate(dateFormat, gDate);
 			}
 			if (!inst.inline && !keyUp) {
-				$(target).val(value);
+				$(target).val(inst.get('translateNumberFunction')(value));
 			}
 			$(inst.get('altField')).val(altValue);
+
+      var gregorianField = $(target).data('gregorian-field');
+      if (gregorianField) {
+        $(gregorianField).val(gValue);
+      }
 			var onSelect = inst.get('onSelect');
 			if (onSelect && !keyUp && !inst.inSelect) {
 				inst.inSelect = true; // Prevent endless loops
@@ -925,6 +936,9 @@ $.extend(CalendarsPicker.prototype, {
 	_keyPress: function(event) {
 		var target = event.target;
 		var inst = $.data(target, $.calendars.picker.dataName);
+    if (inst && inst.get('disableInput')) {
+      return false;
+    }
 		if (inst && inst.get('constrainInput')) {
 			var ch = String.fromCharCode(event.keyCode || event.charCode);
 			var allowedChars = $.calendars.picker._allowedChars(inst);
@@ -1458,7 +1472,7 @@ $.extend(CalendarsPicker.prototype, {
 					(dateInfo.title || (dayStatus && selectable) ? ' title="' +
 					(dateInfo.title || drawDate.formatDate(dayStatus)) + '"' : '') + '>' +
 					(showOtherMonths || drawDate.month() == month ?
-					dateInfo.content || drawDate.day() : '&nbsp;') +
+					dateInfo.content || inst.get('translateNumberFunction')(drawDate.day()) : '&nbsp;') +
 					(selectable ? '</a>' : '</span>'));
 				drawDate.add(1, 'd');
 				jd++;
@@ -1555,7 +1569,7 @@ $.extend(CalendarsPicker.prototype, {
 					selector += '<option value="' +
 						Math.min(month, calendar.monthsInYear(y) - 1 + calendar.minMonth) +
 						'/' + y + '"' + (year == y ? ' selected="selected"' : '') + '>' +
-						y + '</option>';
+						inst.get('translateNumberFunction')(y) + '</option>';
 				}
 			};
 			if (start.toJD() < end.toJD()) {
